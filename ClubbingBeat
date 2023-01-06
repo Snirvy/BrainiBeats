@@ -1,0 +1,31 @@
+chords = [(chord :d, :min), (chord :d, :minor7),
+          (chord :d, :m9), (chord :d, :m11),
+          (chord :e, :dim), (chord :f, :major),
+          (chord :f, :major7)]
+
+aeolian = [:D4, :E4, :F4, :G4, :A4, :Bb4, :C4, :D5]
+
+
+live_loop :note1 do
+  use_synth :bass_foundation
+  use_octave -2
+  play_pattern [chords[0], chords.choose]
+  sleep 0.5
+end
+
+
+live_loop :note2 do
+  use_synth :hoover
+  play_pattern [[aeolian[0], aeolian.choose]]
+  sleep 0.5
+end
+
+live_loop :tijd do
+  sample :bd_haus, amp: 2.5, cutoff: 100
+  sleep 0.5
+end
+
+live_loop :machine do
+  sample :loop_garzul, rate: (knit 1, 3, -1, 1).tick
+  sleep 8
+end
