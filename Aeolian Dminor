@@ -1,0 +1,32 @@
+chords = [(chord :d, :min), (chord :d, :minor7),
+          (chord :d, :m9), (chord :d, :m11),
+          (chord :e, :dim), (chord :f, :major),
+          (chord :f, :major7)]
+
+aeolian = [:D4, :E4, :F4, :G4, :A4, :Bb4, :C4, :D5]
+
+live_loop :loopC do
+  use_synth :piano
+  [1,3,6,4].each do |i|
+    range(-3,3).each do |j|
+      play_chord chords[0]
+      sleep 0.5
+      
+    end
+    
+  end
+end
+
+
+live_loop :note1 do
+  use_synth :piano
+  use_octave -2
+  play_pattern [chords[0], chords.choose]
+  sleep 0.5
+end
+
+live_loop :note2 do
+  use_synth :piano
+  play_pattern [[ionian[0], aeolian.choose]]
+  sleep 0.5
+end
