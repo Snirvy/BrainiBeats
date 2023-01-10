@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from pylsl import StreamInlet, resolve_stream
 import numpy as np
 import pandas as pd
@@ -20,9 +22,12 @@ import warnings
 import socket, struct, os
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn import preprocessing
 
+#os.chdir("C:\\Users\\user1\\Documents")
+#execfile("DualBrainSynchrony_new.py")
 
-
+#exec(open("C:\\Users\\user1\\Documents\\DualBrainSynchrony_new.py").read())
 
 #####
 
@@ -303,85 +308,54 @@ while not finished:
         #C scales
 
         ionian = [ "62", "64", "65", "67", "81", "83", "72"]  #Bright, Joyful, Stable
-        dorian = [ "62", "63" ,"65", "67", "81", "82", "72"] #Jazzy, Bluesy, Rocky, Thoughtful, Uncertain, Sophisticated
+        #dorian = [ "62", "63" ,"65", "67", "81", "82", "72"] #Jazzy, Bluesy, Rocky, Thoughtful, Uncertain, Sophisticated
         phrygian = [ "61" ,"63", "65", "67", "80", "82", "72"]  #Exotic, Latin, Lively, Dark, Mystic
         lydian =  [ "62" , "64" , "66" , "67" ,"81" ,"83", "72"] # Hopeful, Dreamy, Heavenly, Yearning, Ethereal, Uplifting
         mixolydian = ["62" , "64" , "65" , "67" , "81" , "82", "72"] #Positive, Bluesy, Rocky, Poppy, Searching 
         aeolian = [ "62" , "63" , "65" , "67" , "80" , "82", "72"] #Sad, Melancholic, Romantic, Oppressive
         locrian = [ "61" , "63" , "65" , "66" , "80" , "82", "72"] #Complex, Unstable, Exotic, Tense
-        scales = {'ionian' : ionian, 'dorian' : dorian, 'phrygian': phrygian, 'lydian': lydian, 'mixolydian':mixolydian, 'aeolian':aeolian,'locrian':locrian}
+        scales = {0 : ionian, 1 : dorian, 2: phrygian, 3: lydian,
+          4:mixolydian, 5:aeolian,6:locrian}
         phase = 50
-        def getStep(num):
-            step = 2/7
-            return 1-num*step
-        def get_Scale(faa):
-            if faa >= getStep(1):
-                return scales.get('ionian')
+
+        def getMode(faa):
                 
-            elif faa <= getStep(1) and faa >= getStep(2):
-                return scales.get('dorian')
-                
-            elif faa <= getStep(2) and faa >= getStep(3):
-                return scales.get('phrygian')
-                
-            elif faa <= getStep(3) and faa >= getStep(4):
-                return scales.get('lydian')
-                
-            elif faa <= getStep(4) and faa >= getStep(5):
-                return scales.get('mixolydian')
-                
-            elif faa <= getStep(5) and faa >= getStep(6):
-                return scales.get('aeolian')
-                
-            elif faa <= getStep(6) and faa >= getStep(7):
-                return scales.get('locrian')
-            else:
-                return scales.get('ionian')
-    
-    
-        helpi= abs(np.log(abs(FAA)))
-        if helpi >= 1.5:
-            helpi = 1.5
-        elif helpi <=1:
-            helpi = 1
-        #else:
-         #   print("valence was used")
-        loglog = (np.mean(amplitudes[1:35])/100)
-        if loglog != 0:
-            #Pitch = (((-40/helpi)*np.log(loglog)+10))
-            Pitch = (((-40/1.10)*np.log(loglog)+10))
-        #print(Pitch)
-        #collect list of pitches for normalization
-        if j <= 10000:
-            pitchlili.append(Pitch)
-        #print(pitchlili)
-        mini = min(pitchlili)
-        maxi = max(pitchlili)
-        #normalization
-        Pitch = (Pitch - mini)/ (maxi-mini)
-        #print(Pitch)
-        if not math.isnan(Pitch):
-            Pitch = round(Pitch* 128+ 20)
-            pitchlist.append(Pitch)
+            faa_arr = faa.reshape(-1, 1)
+            
+            scaler = preprocessing.MinMaxScaler(feature_range=(0, 7))
+            scaler = scaler.fit(faa_arr)
+            mode_index = scaler.transform(faa_arr)
+            rounded = np.round(mode_index)
+            return scales[int(rounded[0][0])]
+            
+            
+        #Using power law to generate note
+        def midiRange(c, alpha, amp, n=10):
+            lamp = np.log10(amp)
+            m = -(c/alpha)
+            return  m*lamp+n
+         
+        mean_amp = (np.mean(amplitudes[1:35])/100)
         
+        midi = midiRange(40,1.10,mean_amp)
+
+        #Scaling generated note to fit mode
+        if  math.isnan(Pitch):
+            pitchlist.append(0)
         
-        import random
-        my_list = ['a'] * (100-int(phase)) + ['b'] * int(phase)
-        isC = random.choice(my_list)
-        if isC == "b":
-            Note1 = ":C4"
-        else:
-            print("faa", faa)
-            print(get_Scale(faa))
-            scale = get_Scale(faa)
-            print(scale)
-            Note1 = random.choice(scale)
-            print(Note1)
+        mode = getMode(faa)
         
-        if isC == "b":
-            Note2 = ":C4"
-        else:
-            Note2 = random.choice(scale)
+        def getNote(mode, midi):
+            scaler = preprocessing.MinMaxScaler(feature_range=(0, 7))
+            scaler = scaler.fit(midi)
+            note_index = scaler.transform(midi)
+            rounded = np.round(note_index)
+            return rounded
+        
+        i = getNote(mode,midi)
+        Note1 = mode[i]
+        Note2 = Note1 + 8
+
         #:C4
         
         sender.send_message('/trigger2/prophet', [Note1, Note2])
