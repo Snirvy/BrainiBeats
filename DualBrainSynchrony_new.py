@@ -24,9 +24,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
-#os.chdir("C:\\Users\\user1\\Documents")
-#execfile("DualBrainSynchrony_new.py")
-
 #exec(open("C:\\Users\\user1\\Documents\\DualBrainSynchrony_new.py").read())
 
 #####
@@ -38,7 +35,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 udp_socket2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-localaddr = ("192.168.43.219", 15002)
+localaddr = ("192.168.92.105", 15002)
 
 udp_socket2.bind(localaddr)
 print("wow much receive")
@@ -117,7 +114,7 @@ t.start()
 print("yayeet2")
 
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-localaddr = ("192.168.43.219", 15001)
+localaddr = ("192.168.92.105", 15001)
 
 udp_socket.bind(localaddr)
 
@@ -198,7 +195,7 @@ while not finished:
     #FFTRighthem = np.log(abs(FFTRighthem))
     #print("left hem: ", FFTLefthem)
     #print("right hem: ", FFTRighthem)
-    print(FFTRighthem, FFTLefthem)
+    #print(FFTRighthem, FFTLefthem)
     FrontalAlpha = np.log(abs(FFTRighthem) /abs(FFTLefthem))
     return FrontalAlpha
    
@@ -242,31 +239,21 @@ while not finished:
     
     #print("Pitch is done")
   
-   
-    
     #bandpass applied to limit the signal to EEG data    
-    yee = butter_bandpass(np.array(df["FZ"]))
-    yee2 = butter_bandpass(np.array(df["C3"]))
-    yee3 = butter_bandpass(np.array(df["CZ"]))
-    yee4 = butter_bandpass(np.array(df["C4"]))
-    yee5 = butter_bandpass(np.array(df["PZ"]))
-    yee6 = butter_bandpass(np.array(df["PO7"]))
-    yee7 = butter_bandpass(np.array(df["OZ"]))
-    yee8 = butter_bandpass(np.array(df["PO8"]))#'CZ', 'C4', 'PZ', 'PO7', 'OZ', 'PO8'
     #update data based on filtered data
-    df["FZ"] = yee
-    df["C3"] = yee2
-    df["CZ"] = yee3
-    df["C4"] = yee4
-    df["PZ"] = yee5        
-    df["PO7"] = yee6
-    df["OZ"] = yee7
-    df["PO8"] = yee8
+    df["FZ"] = butter_bandpass(np.array(df["FZ"]))
+    df["C3"] = butter_bandpass(np.array(df["C3"]))
+    df["CZ"] = butter_bandpass(np.array(df["CZ"]))
+    df["C4"] = butter_bandpass(np.array(df["C4"]))
+    df["PZ"] = butter_bandpass(np.array(df["PZ"]))        
+    df["PO7"] = butter_bandpass(np.array(df["PO7"]))
+    df["OZ"] = butter_bandpass(np.array(df["OZ"]))
+    df["PO8"] = butter_bandpass(np.array(df["PO8"]))#'CZ', 'C4', 'PZ', 'PO7', 'OZ', 'PO8'
     #print("Bandpass is done")
         #butter_bandpass_filter(df["FZ"][j-500:j])
     #select 250 samples in two channels to detect sybchrony between brain regions
-    df = df.mean(axis = 1)
-    y1 = df[j-250:j]
+    df_mean = df.mean(axis = 1)
+    y1 = df_mean[j-250:j]
     #print("This is y1 which should show 1 1 column of 250 samples: ", y1)
     #indices = ["y1", "y2"]
     #print(y2)
@@ -301,14 +288,14 @@ while not finished:
         #soundlist = [62,64,66,67,69,71,73,74,62,64,66,67,69,71,73,74]
         phase = hilphase(y1)
         print("phase: ", phase)
-        sender = udp_client.SimpleUDPClient("192.168.43.219", 4560)
+        sender = udp_client.SimpleUDPClient("192.168.92.105", 4560)
         #sender.send_message('/trigger/prophet', [61+note, 100, 1,61+note+6  ])
         #f = note
         #adjustement of notes based on synchrony 
         #C scales
 
         ionian = [ "62", "64", "65", "67", "81", "83", "72"]  #Bright, Joyful, Stable
-        #dorian = [ "62", "63" ,"65", "67", "81", "82", "72"] #Jazzy, Bluesy, Rocky, Thoughtful, Uncertain, Sophisticated
+        dorian = [ "62", "63" ,"65", "67", "81", "82", "72"] #Jazzy, Bluesy, Rocky, Thoughtful, Uncertain, Sophisticated
         phrygian = [ "61" ,"63", "65", "67", "80", "82", "72"]  #Exotic, Latin, Lively, Dark, Mystic
         lydian =  [ "62" , "64" , "66" , "67" ,"81" ,"83", "72"] # Hopeful, Dreamy, Heavenly, Yearning, Ethereal, Uplifting
         mixolydian = ["62" , "64" , "65" , "67" , "81" , "82", "72"] #Positive, Bluesy, Rocky, Poppy, Searching 
@@ -334,28 +321,41 @@ while not finished:
             lamp = np.log10(amp)
             m = -(c/alpha)
             return  m*lamp+n
-         
+        
+        #Find mean amplitude
+        #create a new column with the average value for each channel
+        df["average"] = df[cols].mean(axis=1)
+        #df["average"] = df.mean(axis=1)
+        
+        #create data frame with 250 samples
+        dada = df["average"][j-250:j]
+        #turn the dataframe into an array to make it the input for the fourier transform
+        numnum = np.array(dada)
+        #fourier transform
+        FFTSamples = np.fft.fft(numnum)
+        #determine amplitude of waves obtained after fourier transform
+        amplitudes = 2 / n_samples * np.abs(FFTSamples.real) 
         mean_amp = (np.mean(amplitudes[1:35])/100)
         
         midi = midiRange(40,1.10,mean_amp)
 
         #Scaling generated note to fit mode
-        if  math.isnan(Pitch):
-            pitchlist.append(0)
+        #if  math.isnan(Pitch):
+         #   pitchlist.append(0)
         
         mode = getMode(faa)
         
         def getNote(mode, midi):
+            midi_reshape = midi.reshape(-1, 1)
             scaler = preprocessing.MinMaxScaler(feature_range=(0, 7))
-            scaler = scaler.fit(midi)
-            note_index = scaler.transform(midi)
+            scaler = scaler.fit(midi_reshape)
+            note_index = scaler.transform(midi_reshape)
             rounded = np.round(note_index)
-            return rounded
+            return int(rounded[0][0])
         
         i = getNote(mode,midi)
-        Note1 = mode[i]
-        Note2 = Note1 + 8
-
+        Note1 = int(mode[i])
+        Note2 = int(Note1) + 8
         #:C4
         
         sender.send_message('/trigger2/prophet', [Note1, Note2])
